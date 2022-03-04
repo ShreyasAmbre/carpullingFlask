@@ -3,11 +3,12 @@ import json
 from flask import request, jsonify
 from flask_restful import Resource
 import uuid
-from carpulling.models import DriverRides, DriverUsers, PassangerUsers, DriverRidesSchema, DriverUsersSchema, PassangerUsersSchema
+from carpulling.models import DriverRides, DriverUsers, PassangerBookedRides, PassangerBookedRidesSchema, PassangerUsers, DriverRidesSchema, DriverUsersSchema, PassangerUsersSchema
 
 driverrides_schema = DriverRidesSchema()
 driverusers_schema = DriverUsersSchema()
 passangeruser_schema = PassangerUsersSchema()
+passangerbookedrides_schema = PassangerBookedRidesSchema()
 
 class HelloWorld(Resource):
     def get(self):
@@ -129,7 +130,6 @@ class PassangerProfileDetails(Resource):
         else:
             return {"msg": "User not found"}, 500   
 
-
 class UpdateRideStatus(Resource):
     def post(self):
         data = request.get_json()
@@ -140,3 +140,58 @@ class UpdateRideStatus(Resource):
             return {"msg": "Ride Cancelled"}, 202
         else:
             return {"msg": "Ride  not found"}, 500 
+
+class PassangerBookRide(Resource):
+    def post(self):
+        data = request.get_json()
+        # print("DATA OF BOOK RIDE ==>", data)
+
+        ride = PassangerBookedRides.checkride(self, data["driver_id"], data["passanger_id"], data["ride_id"])
+        if ride:
+            return {"msg": "Ride Already Confirmed"}
+        else:
+            DriverRides.updatepassangerrequiredcount(self, data)
+            PassangerBookedRides.addbookedride(self, data["driver_id"], data["passanger_id"], data["ride_id"], data["driver_fullname"], 
+            data["driver_email"], data["driver_contact"], data["passanger_fullname"], data["passanger_email"], data["passanger_contact"], 
+            data["sources"], data["destination"], data["ride_fare"], data["date_of_ride"], data["time_of_ride"], data["car_name"], 
+            data["car_number_plate"])
+
+            return {"msg": "Confirmed Rides"}, 200      
+
+class GetPassangerBookedRides(Resource):
+    def post(self):
+        data = request.get_json()
+        print("DATA OF CONFIRM RIDES PASS. ID  ==>", data)
+
+        confirm_rides = PassangerBookedRides.getallconfirmridesofpassanger(self, data["passanger_id"])
+        # print("CONFIRM RIDES OF PASSANGER ==>", driverrides, type(driverrides))
+
+        result = passangerbookedrides_schema.dumps(confirm_rides, many=True)
+
+        return result, 202
+
+class UpdateRatingsAndRides(Resource):
+    def post(self):
+        data = request.get_json()
+        # print("DATA DRIVER UPDATE ==>", data)
+
+        if 'ratings' in data:
+            user = DriverUsers.updatedriverratings(self, data)
+        # driverride = DriverRides.updaterideofdriver(self, data)
+        passangerride = PassangerBookedRides.updatepassangerride(self, data)
+        if(passangerride):
+            return {"msg": "Ride and Rating Updated"}
+        else:
+            return {"msg": "Something went wrong"}
+
+class PassangerListOnRides(Resource):
+    def post(self):
+        data = request.get_json()
+        # print("DATA DRIVER UPDATE ==>", data)
+
+        passanger_list = PassangerBookedRides.getpassangerlistofrides(self, data["driver_id"], data["ride_id"])
+
+        result = passangerbookedrides_schema.dumps(passanger_list, many=True)
+
+        return result, 202
+        

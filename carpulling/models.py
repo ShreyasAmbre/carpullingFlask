@@ -1,3 +1,5 @@
+import datetime
+from email.policy import default
 from carpulling import db, ma
 from os import path
 
@@ -18,6 +20,7 @@ class DriverUsers(db.Model):
     aadharfile = db.Column(db.String(30), nullable=False)
     licensefile = db.Column(db.String(30), nullable=False)
     carfile = db.Column(db.String(30), nullable=False)
+    ratings = db.Column(db.Integer, default=2)
     driver_rides = db.relationship('DriverRides', backref='driverusers', lazy=True)
     
 
@@ -55,9 +58,19 @@ class DriverUsers(db.Model):
         
         return driver_details_updated, 201
 
+    def updatedriverratings(self, data):
+        driver_details_updated = DriverUsers.query.filter_by(id=data["driver_id"]).update(
+            {
+                "ratings": data["ratings"],
+            }
+        )
+        db.session.commit()
+        
+        return driver_details_updated, 201
+
 class DriverUsersSchema(ma.Schema):
     class Meta:
-        fields = ('id', 'fullname', 'email', 'contact', 'role','aadharno', 'carname', 'carnoplate', 'carlicenseno')
+        fields = ('id', 'fullname', 'email', 'contact', 'role','aadharno', 'carname', 'carnoplate', 'carlicenseno', 'ratings')
 
 class PassangerUsers(db.Model):
 
@@ -138,10 +151,89 @@ class DriverRides(db.Model):
         db.session.commit()
         return ride_updated, 201
 
+    def updatepassangerrequiredcount(self,data):
+        ride_updated = DriverRides.query.filter_by(id=data["ride_id"]).update(
+            {
+                "passanger_required": data["passanger_required"],
+            }
+        )
+        db.session.commit()
+        return ride_updated, 201
+
 class DriverRidesSchema(ma.Schema):
     class Meta:
         fields = ('id', 'sources', 'destination', 'passanger_required', 'ride_fare', 'date_of_ride', 'time_of_ride', 'car_name', 'car_number_plate', 'ride_status', 'driver_id')
 
+class PassangerBookedRides(db.Model):
+
+    __tablename__ = "PassangerBookedRides"
+    id = db.Column(db.Integer, primary_key=True)
+    driver_id = db.Column(db.Integer, nullable=False)
+    passanger_id = db.Column(db.Integer, nullable=False)
+    ride_id = db.Column(db.Integer, nullable=False)
+    driver_fullname = db.Column(db.String(30), nullable=False)
+    driver_email = db.Column(db.String(30), nullable=False)
+    driver_contact = db.Column(db.String(15), nullable=False)
+    passanger_fullname = db.Column(db.String(30), nullable=False)
+    passanger_email = db.Column(db.String(30), nullable=False)
+    passanger_contact = db.Column(db.String(15), nullable=False)
+    sources = db.Column(db.String(30), nullable=False)
+    destination = db.Column(db.String(30), nullable=False)
+    ride_fare = db.Column(db.String(10), nullable=False)
+    date_of_ride = db.Column(db.String(20), nullable=False)
+    time_of_ride = db.Column(db.String(20), nullable=False)
+    car_name = db.Column(db.String(20), nullable=False)
+    car_number_plate = db.Column(db.String(20), nullable=False)
+    booked_ride_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    ride_status = db.Column(db.String(20), default="pending")
+    last_update_ride = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+    def checkride(self, passanger_id, driver_id, ride_id):
+        ride = PassangerBookedRides.query.filter_by(passanger_id=passanger_id, driver_id=driver_id, ride_id=ride_id).first()
+        return ride
+
+    def getallconfirmridesofpassanger(self, passanger_id):
+        confirm_rides = PassangerBookedRides.query.filter_by(passanger_id=passanger_id).all()
+        return confirm_rides
+
+    def addbookedride(self, driver_id, passanger_id, ride_id, driver_fullname, driver_email, driver_contact, passanger_fullname, passanger_email, passanger_contact, sources, destination, ride_fare, date_of_ride, time_of_ride, car_name, car_number_plate):
+        booked_ride = PassangerBookedRides (driver_id=driver_id, passanger_id=passanger_id, ride_id=ride_id, driver_fullname=driver_fullname, 
+        driver_email=driver_email, driver_contact=driver_contact, passanger_fullname=passanger_fullname, passanger_email=passanger_email, 
+        passanger_contact=passanger_contact, sources=sources, destination=destination, ride_fare=ride_fare, date_of_ride=date_of_ride,
+        time_of_ride=time_of_ride, car_name=car_name, car_number_plate=car_number_plate)
+
+        db.session.add(booked_ride)
+        db.session.commit()
+        return booked_ride, 201
+
+    def updatepassangerride(self, data):
+        if data["ride_status"] == 'completed':
+            ride_updated = PassangerBookedRides.query.filter_by(ride_id=data["ride_id"], driver_id=data["driver_id"], passanger_id=data["passanger_id"]).update(
+                {
+                    "ride_status": data["ride_status"],
+                }
+            )
+            db.session.commit()
+            return ride_updated, 201
+        if data["ride_status"] == 'cancelled':
+            ride_updated = PassangerBookedRides.query.filter_by(ride_id=data["ride_id"], driver_id=data["driver_id"], passanger_id=data["passanger_id"]).update(
+                {
+                    "ride_status": data["ride_status"],
+                }
+            )
+            db.session.commit()
+            return ride_updated, 201
+
+    def getpassangerlistofrides(self, driver_id, ride_id):
+        rides = PassangerBookedRides.query.filter_by(driver_id=driver_id, ride_id=ride_id).all()
+        return rides
+  
+class PassangerBookedRidesSchema(ma.Schema):
+
+    class Meta:
+        fields = ('id', 'driver_id', 'passanger_id', 'ride_id', 'driver_fullname', 'driver_email', 'driver_contact', 
+        'passanger_fullname', 'passanger_email', 'passanger_contact', 'sources', 'destination', 'ride_fare', 'date_of_ride', 
+        'time_of_ride', 'car_name', 'car_number_plate', 'booked_ride_at', 'ride_status')
 
 
 if path.exists("carpulling.db") == False:
