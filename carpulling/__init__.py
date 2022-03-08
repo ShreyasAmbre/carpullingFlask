@@ -16,3 +16,8 @@ db = SQLAlchemy(app)
 ma = Marshmallow(app)
 
 from carpulling import routes
+
+
+@app.route('/')
+def index():
+    return 'Web App with Python Flask!'
