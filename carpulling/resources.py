@@ -23,7 +23,7 @@ class DriverSignUp(Resource):
         else:
             DriverUsers.adduser(self, 
             data["fullname"], data["email"], data["contact"], data["role"], data["password"], data["aadharno"], 
-            data["carname"], data["carnoplate"], data["carlicenseno"], data["aadharfile"], data["licensefile"], data["carfile"])
+            data["carname"], data["carnoplate"], data["carlicenseno"], data["aadharfile"], data["licensefile"], data["carfile"], data["fid"])
 
             return {"msg": "Account Created"}, 200
 
@@ -36,7 +36,7 @@ class PassangerSignUp(Resource):
             return {"msg": "User Already Present"}
         else:
             PassangerUsers.adduser(self, 
-            data["fullname"], data["email"], data["contact"], data["role"], data["password"])
+            data["fullname"], data["email"], data["contact"], data["role"], data["password"], data["fid"])
 
             return {"msg": "Account Created"}, 200
 
@@ -69,7 +69,7 @@ class BookDriverRide(Resource):
 
         ride_status = "pending"
         DriverRides.addride(self, data["sources"], data["destination"], data["passanger_required"], data["ride_fare"], 
-        data["date_of_ride"], data["time_of_ride"], data["car_name"], data["car_number_plate"], ride_status, data["driver_id"])
+        data["date_of_ride"], data["time_of_ride"], data["car_name"], data["car_number_plate"], ride_status, data["fid"])
 
         return {"msg": "Ride Booked Successfully"}, 200
 
@@ -78,7 +78,7 @@ class GetDriverRides(Resource):
         data = request.get_json()
         # print("DATA DRIVER ID ==>", data)
 
-        driverrides = DriverRides.getallridesofdriver(self, data["driver_id"])
+        driverrides = DriverRides.getallridesofdriver(self, data["fid"])
         # print("DRIVER RIDES ==>", driverrides, type(driverrides))
 
         result = driverrides_schema.dumps(driverrides, many=True)
@@ -111,7 +111,7 @@ class DriverProfileDetails(Resource):
     def post(self):
         data = request.get_json()
         print("DRIVER DETAILS ==>", data)
-        user = DriverUsers.getuser(self, data["id"])
+        user = DriverUsers.getuser(self, data["fid"])
         if user:
             print("DRIVER PROFILE =>", user)
             result = driverusers_schema.dumps(user, many=True)
@@ -123,7 +123,7 @@ class PassangerProfileDetails(Resource):
     def post(self):
         data = request.get_json()
         # print("DRIVER DETAILS ==>", data)
-        user = PassangerUsers.getuser(self, data["id"])
+        user = PassangerUsers.getuser(self, data["fid"])
         if user:
             result = passangeruser_schema.dumps(user, many=True)
             return result, 202
@@ -194,4 +194,15 @@ class PassangerListOnRides(Resource):
         result = passangerbookedrides_schema.dumps(passanger_list, many=True)
 
         return result, 202
-        
+
+class GetDriverAllRides(Resource):
+    def post(self):
+        data = request.get_json()
+        # print("DATA DRIVER ID ==>", data)
+
+        driverrides = DriverRides.getallrides(self)
+        # print("DRIVER RIDES ==>", driverrides, type(driverrides))
+
+        result = driverrides_schema.dumps(driverrides, many=True)
+
+        return result, 202
